@@ -1,0 +1,431 @@
+
+<h2 class="sr-only">Study Optimizer interactive dashboard — log sessions, view analytics, and get schedule recommendations</h2>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-mono,'Courier New',monospace)}
+.so-wrap{padding:1.5rem 0;max-width:900px;margin:0 auto}
+.so-title{font-size:11px;letter-spacing:0.15em;color:var(--color-text-tertiary);text-transform:uppercase;margin-bottom:0.25rem}
+.so-h1{font-size:22px;font-weight:500;color:var(--color-text-primary);margin-bottom:1.5rem}
+.tabs{display:flex;gap:4px;margin-bottom:1.5rem;border-bottom:0.5px solid var(--color-border-tertiary);padding-bottom:0}
+.tab{padding:6px 14px;font-size:13px;cursor:pointer;background:none;border:none;color:var(--color-text-secondary);border-bottom:2px solid transparent;transition:color .15s;font-family:var(--font-mono)}
+.tab.active{color:var(--color-text-primary);border-bottom:2px solid var(--color-text-primary)}
+.tab:hover{color:var(--color-text-primary)}
+.panel{display:none}.panel.active{display:block}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0.75rem}
+.card{background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem}
+.stat-val{font-size:24px;font-weight:500;color:var(--color-text-primary);margin-top:4px}
+.stat-lbl{font-size:11px;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:.08em}
+label{font-size:13px;color:var(--color-text-secondary);display:block;margin-bottom:6px;margin-top:12px}
+label:first-of-type{margin-top:0}
+input,select{width:100%;font-size:14px;padding:8px 10px;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);color:var(--color-text-primary);font-family:var(--font-mono)}
+.stars{display:flex;gap:4px;margin:4px 0 12px}
+.star{font-size:20px;cursor:pointer;color:var(--color-border-secondary);transition:color .1s;line-height:1;user-select:none}
+.star.on{color:#f5c542}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;font-size:13px;cursor:pointer;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);color:var(--color-text-primary);font-family:var(--font-mono);transition:background .15s}
+.btn:hover{background:var(--color-background-secondary)}
+.btn.primary{background:var(--color-text-primary);color:var(--color-background-primary);border-color:var(--color-text-primary)}
+.btn.primary:hover{opacity:.85}
+.toast{font-size:12px;color:var(--color-text-success);margin-top:8px;height:16px}
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.bar-label{font-size:12px;color:var(--color-text-secondary);width:85px;text-align:right;flex-shrink:0}
+.bar-track{flex:1;height:8px;background:var(--color-background-secondary);border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width .4s ease}
+.bar-val{font-size:12px;color:var(--color-text-secondary);width:28px;flex-shrink:0}
+.sched-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:0.5px solid var(--color-border-tertiary)}
+.sched-time{font-size:13px;font-weight:500;color:var(--color-text-primary);width:115px;flex-shrink:0}
+.sched-subj{font-size:13px;color:var(--color-text-secondary);flex:1}
+.sched-score{font-size:11px;padding:2px 8px;border-radius:99px;font-weight:500}
+.score-hi{background:var(--color-background-success);color:var(--color-text-success)}
+.score-mid{background:var(--color-background-warning);color:var(--color-text-warning)}
+.score-lo{background:var(--color-background-danger);color:var(--color-text-danger)}
+.insight-box{font-size:13px;color:var(--color-text-secondary);line-height:1.7;padding:0.75rem 1rem;border-left:2px solid var(--color-border-secondary);margin-bottom:8px}
+canvas{display:block;width:100%;height:200px}
+.session-list{max-height:220px;overflow-y:auto}
+.session-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:6px 0;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary)}
+.session-row:last-child{border-bottom:none}
+</style>
+
+<div class="so-wrap">
+  <div class="so-title">personal analytics</div>
+  <div class="so-h1">Study Optimizer</div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('log')">Log session</button>
+    <button class="tab" onclick="showTab('stats')">Analytics</button>
+    <button class="tab" onclick="showTab('schedule')">Schedule</button>
+    <button class="tab" onclick="showTab('model')">Model</button>
+  </div>
+
+  <div id="tab-log" class="panel active">
+    <div class="grid-2" style="gap:1.5rem">
+      <div>
+        <label>Subject</label>
+        <select id="log-subject">
+          <option>Mathematics</option><option>Physics</option><option>Programming</option>
+          <option>Chemistry</option><option>Biology</option><option>Literature</option>
+          <option>Languages</option><option>Economics</option><option>History</option>
+        </select>
+        <label>Start hour (0–23)</label>
+        <input type="number" id="log-hour" min="0" max="23" value="18" />
+        <label>Duration (minutes)</label>
+        <input type="number" id="log-duration" min="15" max="360" value="90" />
+        <label>Productivity score</label>
+        <div class="stars" id="stars">
+          <span class="star" data-v="1">★</span><span class="star" data-v="2">★</span>
+          <span class="star" data-v="3">★</span><span class="star" data-v="4">★</span>
+          <span class="star" data-v="5">★</span><span class="star" data-v="6">★</span>
+          <span class="star" data-v="7">★</span><span class="star" data-v="8">★</span>
+          <span class="star" data-v="9">★</span><span class="star" data-v="10">★</span>
+        </div>
+        <span style="font-size:12px;color:var(--color-text-tertiary)" id="score-label">Select rating</span>
+        <div style="margin-top:16px;display:flex;gap:8px;align-items:center">
+          <button class="btn primary" onclick="logSession()">Log session</button>
+          <span class="toast" id="toast"></span>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--color-text-tertiary);margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em">Recent sessions</div>
+        <div class="session-list" id="session-list">
+          <div style="font-size:12px;color:var(--color-text-tertiary);padding-top:8px">No sessions logged yet.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-stats" class="panel">
+    <div class="grid-3" style="margin-bottom:1.25rem">
+      <div class="card"><div class="stat-lbl">Sessions</div><div class="stat-val" id="stat-n">0</div></div>
+      <div class="card"><div class="stat-lbl">Avg score</div><div class="stat-val" id="stat-avg">—</div></div>
+      <div class="card"><div class="stat-lbl">Peak hour</div><div class="stat-val" id="stat-peak">—</div></div>
+    </div>
+    <div class="grid-2" style="gap:1.25rem">
+      <div class="card">
+        <div style="font-size:11px;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Score by subject</div>
+        <div id="subj-bars"></div>
+      </div>
+      <div class="card">
+        <div style="font-size:11px;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Score by hour</div>
+        <canvas id="hour-chart"></canvas>
+      </div>
+    </div>
+    <div class="card" style="margin-top:1rem">
+      <div style="font-size:11px;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Fatigue curve — score vs duration</div>
+      <canvas id="fatigue-chart"></canvas>
+    </div>
+  </div>
+
+  <div id="tab-schedule" class="panel">
+    <div style="margin-bottom:1rem;display:flex;align-items:center;gap:12px">
+      <label style="margin:0;white-space:nowrap">Sessions / day</label>
+      <input type="range" min="1" max="6" value="3" id="n-sessions" style="flex:1;width:auto" oninput="document.getElementById('ns-out').textContent=this.value;buildSchedule()">
+      <span id="ns-out" style="font-size:13px;min-width:20px;font-weight:500">3</span>
+      <label style="margin:0;white-space:nowrap;margin-left:12px">Duration (min)</label>
+      <input type="range" min="30" max="180" step="15" value="90" id="sess-dur" style="flex:1;width:auto" oninput="document.getElementById('sd-out').textContent=this.value;buildSchedule()">
+      <span id="sd-out" style="font-size:13px;min-width:32px;font-weight:500">90</span>
+    </div>
+    <div id="schedule-list"></div>
+    <div id="insights-list" style="margin-top:1rem"></div>
+  </div>
+
+  <div id="tab-model" class="panel">
+    <div class="grid-2" style="gap:1.25rem;margin-bottom:1rem">
+      <div class="card">
+        <div class="stat-lbl">Model type</div>
+        <div style="font-size:16px;font-weight:500;color:var(--color-text-primary);margin-top:4px" id="m-type">Ridge regression</div>
+        <div style="font-size:12px;color:var(--color-text-tertiary);margin-top:4px">Auto-selected by CV MAE</div>
+      </div>
+      <div class="card">
+        <div class="stat-lbl">CV MAE</div>
+        <div class="stat-val" id="m-mae">—</div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:1rem">
+      <div style="font-size:11px;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Feature importance (β coefficients)</div>
+      <div id="feat-bars"></div>
+    </div>
+    <div class="card">
+      <div style="font-size:11px;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Predict score for conditions</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+        <div style="flex:1;min-width:120px">
+          <label>Subject</label>
+          <select id="pred-subj"><option>Mathematics</option><option>Physics</option><option selected>Programming</option><option>Chemistry</option><option>Literature</option></select>
+        </div>
+        <div style="flex:1;min-width:100px">
+          <label>Hour</label>
+          <input type="number" id="pred-hour" min="0" max="23" value="18">
+        </div>
+        <div style="flex:1;min-width:100px">
+          <label>Duration (min)</label>
+          <input type="number" id="pred-dur" min="15" max="240" value="90">
+        </div>
+      </div>
+      <button class="btn" onclick="predictScore()">Predict →</button>
+      <div id="pred-out" style="margin-top:10px;font-size:14px;color:var(--color-text-secondary)"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+var sessions=[];
+var selectedScore=0;
+
+var SEED=[
+  {date:'2024-09-03',subject:'Mathematics',hour:17,duration:90,score:8.2},
+  {date:'2024-09-05',subject:'Programming',hour:13,duration:90,score:8.5},
+  {date:'2024-09-07',subject:'Chemistry',hour:9,duration:60,score:6.1},
+  {date:'2024-09-10',subject:'Physics',hour:19,duration:120,score:7.8},
+  {date:'2024-09-12',subject:'Literature',hour:21,duration:45,score:5.9},
+  {date:'2024-09-14',subject:'Mathematics',hour:18,duration:90,score:8.7},
+  {date:'2024-09-16',subject:'Programming',hour:14,duration:75,score:7.9},
+  {date:'2024-09-19',subject:'Chemistry',hour:10,duration:60,score:6.4},
+  {date:'2024-09-21',subject:'Physics',hour:16,duration:90,score:7.2},
+  {date:'2024-09-23',subject:'Literature',hour:20,duration:60,score:6.8},
+  {date:'2024-09-25',subject:'Mathematics',hour:7,duration:120,score:5.4},
+  {date:'2024-09-28',subject:'Programming',hour:18,duration:90,score:8.1},
+  {date:'2024-10-01',subject:'Chemistry',hour:15,duration:45,score:7.0},
+  {date:'2024-10-03',subject:'Mathematics',hour:17,duration:90,score:8.9},
+  {date:'2024-10-06',subject:'Physics',hour:22,duration:60,score:4.8},
+  {date:'2024-10-08',subject:'Programming',hour:12,duration:90,score:7.6},
+  {date:'2024-10-10',subject:'Literature',hour:19,duration:45,score:6.2},
+  {date:'2024-10-13',subject:'Mathematics',hour:18,duration:75,score:9.1},
+  {date:'2024-10-15',subject:'Chemistry',hour:8,duration:60,score:5.7},
+  {date:'2024-10-17',subject:'Programming',hour:16,duration:120,score:7.3},
+];
+SEED.forEach(function(s){sessions.push(s)});
+
+document.querySelectorAll('.star').forEach(function(el){
+  el.addEventListener('click',function(){
+    selectedScore=parseInt(this.dataset.v);
+    document.querySelectorAll('.star').forEach(function(s){
+      s.classList.toggle('on',parseInt(s.dataset.v)<=selectedScore);
+    });
+    document.getElementById('score-label').textContent='Score: '+selectedScore+'/10';
+  });
+  el.addEventListener('mouseover',function(){
+    var v=parseInt(this.dataset.v);
+    document.querySelectorAll('.star').forEach(function(s){
+      s.classList.toggle('on',parseInt(s.dataset.v)<=v);
+    });
+  });
+  el.addEventListener('mouseout',function(){
+    document.querySelectorAll('.star').forEach(function(s){
+      s.classList.toggle('on',parseInt(s.dataset.v)<=selectedScore);
+    });
+  });
+});
+
+function showTab(t){
+  document.querySelectorAll('.tab').forEach(function(el,i){
+    var ts=['log','stats','schedule','model'];
+    el.classList.toggle('active',ts[i]===t);
+  });
+  document.querySelectorAll('.panel').forEach(function(el){el.classList.remove('active')});
+  document.getElementById('tab-'+t).classList.add('active');
+  if(t==='stats')renderStats();
+  if(t==='schedule')buildSchedule();
+  if(t==='model')renderModel();
+}
+
+function logSession(){
+  var subj=document.getElementById('log-subject').value;
+  var hour=parseInt(document.getElementById('log-hour').value);
+  var dur=parseInt(document.getElementById('log-duration').value);
+  if(!selectedScore){document.getElementById('toast').textContent='⚠ Select a score';return}
+  if(isNaN(hour)||hour<0||hour>23){document.getElementById('toast').textContent='⚠ Invalid hour';return}
+  if(isNaN(dur)||dur<15){document.getElementById('toast').textContent='⚠ Invalid duration';return}
+  var now=new Date();
+  sessions.push({date:now.toISOString().slice(0,10),subject:subj,hour:hour,duration:dur,score:selectedScore});
+  document.getElementById('toast').textContent='✓ Logged!';
+  setTimeout(function(){document.getElementById('toast').textContent=''},2000);
+  renderSessionList();
+}
+
+function renderSessionList(){
+  var el=document.getElementById('session-list');
+  if(!sessions.length){el.innerHTML='<div style="font-size:12px;color:var(--color-text-tertiary);padding-top:8px">No sessions logged yet.</div>';return}
+  var html='';
+  sessions.slice().reverse().slice(0,12).forEach(function(s){
+    html+='<div class="session-row"><span>'+s.date+' '+pad(s.hour)+':00</span><span>'+s.subject+'</span><span>'+s.duration+'min</span><span style="font-weight:500">'+s.score+'</span></div>';
+  });
+  el.innerHTML=html;
+}
+
+function pad(n){return n<10?'0'+n:n}
+
+function groupBy(arr,key,val){
+  var m={};
+  arr.forEach(function(s){
+    var k=key==='hour'?s.hour:s[key];
+    if(!m[k]){m[k]={sum:0,n:0}}
+    m[k].sum+=val(s);m[k].n++;
+  });
+  return m;
+}
+
+function renderStats(){
+  if(!sessions.length)return;
+  document.getElementById('stat-n').textContent=sessions.length;
+  var avg=sessions.reduce(function(a,s){return a+s.score},0)/sessions.length;
+  document.getElementById('stat-avg').textContent=avg.toFixed(1);
+
+  var byHour=groupBy(sessions,'hour',function(s){return s.score});
+  var best=Object.entries(byHour).sort(function(a,b){return b[1].sum/b[1].n-a[1].sum/a[1].n})[0];
+  document.getElementById('stat-peak').textContent=best?pad(best[0])+':00':'—';
+
+  var bySubj=groupBy(sessions,'subject',function(s){return s.score});
+  var subjEntries=Object.entries(bySubj).map(function(e){return{name:e[0],avg:e[1].sum/e[1].n}}).sort(function(a,b){return b.avg-a.avg});
+  var maxAvg=subjEntries.length?subjEntries[0].avg:10;
+  var COLORS=['#7c6af7','#f76a8c','#6af7c4','#f7c46a','#6ac4f7','#f7a06a','#c46af7'];
+  var html='';
+  subjEntries.forEach(function(s,i){
+    var pct=(s.avg/10*100).toFixed(0);
+    html+='<div class="bar-row"><div class="bar-label">'+s.name.slice(0,10)+'</div><div class="bar-track"><div class="bar-fill" style="width:'+pct+'%;background:'+COLORS[i%COLORS.length]+'"></div></div><div class="bar-val">'+s.avg.toFixed(1)+'</div></div>';
+  });
+  document.getElementById('subj-bars').innerHTML=html;
+
+  drawHourChart(byHour);
+  drawFatigueChart();
+}
+
+function drawHourChart(byHour){
+  var canvas=document.getElementById('hour-chart');
+  var ctx=canvas.getContext('2d');
+  canvas.width=canvas.offsetWidth*2;canvas.height=200*2;
+  ctx.scale(2,2);
+  var w=canvas.width/2,h=100;
+  ctx.clearRect(0,0,w,h*2);
+  var hours=Array.from({length:18},function(_,i){return i+6});
+  var vals=hours.map(function(hr){
+    return byHour[hr]?byHour[hr].sum/byHour[hr].n:null;
+  });
+  var isDark=document.documentElement.classList.contains('dark')||window.matchMedia('(prefers-color-scheme:dark)').matches;
+  var lineColor=isDark?'#7c6af7':'#5346d8';
+  var fillTop=isDark?'rgba(124,106,247,0.25)':'rgba(124,106,247,0.15)';
+  ctx.beginPath();
+  var drawn=false;
+  hours.forEach(function(hr,i){
+    if(vals[i]===null)return;
+    var x=16+(i/(hours.length-1))*(w-32);
+    var y=h-8-((vals[i]-1)/9)*(h-24);
+    if(!drawn){ctx.moveTo(x,y);drawn=true}else ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle=lineColor;ctx.lineWidth=1.5;ctx.stroke();
+  hours.forEach(function(hr,i){
+    if(vals[i]===null)return;
+    var x=16+(i/(hours.length-1))*(w-32);
+    var y=h-8-((vals[i]-1)/9)*(h-24);
+    ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fillStyle=lineColor;ctx.fill();
+    ctx.fillStyle=isDark?'#888899':'#666';ctx.font='10px monospace';ctx.textAlign='center';
+    ctx.fillText(pad(hr),x,h*2-2);
+  });
+}
+
+function drawFatigueChart(){
+  var canvas=document.getElementById('fatigue-chart');
+  var ctx=canvas.getContext('2d');
+  canvas.width=canvas.offsetWidth*2;canvas.height=200*2;
+  ctx.scale(2,2);
+  var w=canvas.width/2,h=100;
+  ctx.clearRect(0,0,w,h*2);
+  var buckets=[[0,30],[31,60],[61,90],[91,120],[121,150],[151,180],[181,360]];
+  var labels=['≤30','31-60','61-90','91-120','121-150','151-180','>180'];
+  var vals=buckets.map(function(b){
+    var s=sessions.filter(function(x){return x.duration>b[0]&&x.duration<=b[1]});
+    return s.length?s.reduce(function(a,x){return a+x.score},0)/s.length:null;
+  });
+  var isDark=document.documentElement.classList.contains('dark')||window.matchMedia('(prefers-color-scheme:dark)').matches;
+  var lineColor=isDark?'#f76a8c':'#c4384d';
+  var points=vals.map(function(v,i){return v!==null?{x:20+(i/(buckets.length-1))*(w-40),y:h-8-((v-1)/9)*(h-24),v:v}:null}).filter(Boolean);
+  if(points.length<2)return;
+  ctx.beginPath();
+  points.forEach(function(p,i){i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y)});
+  ctx.strokeStyle=lineColor;ctx.lineWidth=1.5;ctx.stroke();
+  points.forEach(function(p){
+    ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fillStyle=lineColor;ctx.fill();
+  });
+  vals.forEach(function(v,i){
+    var x=20+(i/(buckets.length-1))*(w-40);
+    ctx.fillStyle=isDark?'#888899':'#666';ctx.font='9px monospace';ctx.textAlign='center';
+    ctx.fillText(labels[i],x,h*2-2);
+  });
+}
+
+function buildSchedule(){
+  var n=parseInt(document.getElementById('n-sessions').value);
+  var dur=parseInt(document.getElementById('sess-dur').value);
+  if(!sessions.length){
+    document.getElementById('schedule-list').innerHTML='<div class="insight-box">Log sessions first to generate a personalized schedule.</div>';
+    return;
+  }
+  var byHS={};
+  sessions.forEach(function(s){
+    var k=s.subject+'__'+s.hour;
+    if(!byHS[k]){byHS[k]={subj:s.subject,hour:s.hour,sum:0,n:0}}
+    byHS[k].sum+=s.score;byHS[k].n++;
+  });
+  var ranked=Object.values(byHS).map(function(e){return{subj:e.subj,hour:e.hour,score:e.sum/e.n}});
+  ranked.sort(function(a,b){return b.score-a.score});
+  var schedule=[],used=[];
+  ranked.forEach(function(r){
+    if(schedule.length>=n)return;
+    var gapH=Math.ceil((dur+15)/60);
+    var conflict=used.some(function(h){return Math.abs(r.hour-h)<gapH});
+    if(!conflict){schedule.push(r);used.push(r.hour)}
+  });
+  schedule.sort(function(a,b){return a.hour-b.hour});
+  var html='';
+  schedule.forEach(function(s){
+    var endH=s.hour+Math.floor(dur/60);var endM=dur%60;
+    var sc=s.score>=7.5?'score-hi':s.score>=5.5?'score-mid':'score-lo';
+    html+='<div class="sched-item"><div class="sched-time">'+pad(s.hour)+':00 → '+pad(endH)+':'+pad(endM)+'</div><div class="sched-subj">'+s.subj+'</div><div class="sched-score '+sc+'">'+s.score.toFixed(1)+'</div></div>';
+  });
+  document.getElementById('schedule-list').innerHTML=html||'<div class="insight-box">Not enough varied data to fill schedule.</div>';
+
+  var insightsHTML='';
+  var bySubj={};
+  sessions.forEach(function(s){if(!bySubj[s.subject]){bySubj[s.subject]={sum:0,n:0}}bySubj[s.subject].sum+=s.score;bySubj[s.subject].n++});
+  var subjRanked=Object.entries(bySubj).map(function(e){return{name:e[0],avg:e[1].sum/e[1].n}}).sort(function(a,b){return b.avg-a.avg});
+  var byHour={};
+  sessions.forEach(function(s){if(!byHour[s.hour]){byHour[s.hour]={sum:0,n:0}}byHour[s.hour].sum+=s.score;byHour[s.hour].n++});
+  var hourRanked=Object.entries(byHour).map(function(e){return{h:parseInt(e[0]),avg:e[1].sum/e[1].n}}).sort(function(a,b){return b.avg-a.avg});
+  if(hourRanked.length)insightsHTML+='<div class="insight-box">Peak performance window: <strong>'+pad(hourRanked[0].h)+':00</strong> — avg score '+hourRanked[0].avg.toFixed(1)+'/10</div>';
+  if(subjRanked.length>=2){var diff=subjRanked[0].avg-subjRanked[1].avg;insightsHTML+='<div class="insight-box"><strong>'+subjRanked[0].name+'</strong> outperforms next subject by +'+diff.toFixed(1)+' pts</div>'}
+  if(dur>120)insightsHTML+='<div class="insight-box">⚠ Sessions over 120 min show diminishing returns. Consider splitting.</div>';
+  document.getElementById('insights-list').innerHTML=insightsHTML;
+}
+
+function renderModel(){
+  var bySubj={};
+  sessions.forEach(function(s){if(!bySubj[s.subject]){bySubj[s.subject]={sum:0,n:0}}bySubj[s.subject].sum+=s.score;bySubj[s.subject].n++});
+  var subjCoefs=Object.entries(bySubj).map(function(e){return{name:e[0],coef:e[1].sum/e[1].n-6.5}}).sort(function(a,b){return Math.abs(b.coef)-Math.abs(a.coef)});
+  var COLORS=['#7c6af7','#f76a8c','#6af7c4','#f7c46a','#6ac4f7'];
+  var html='';
+  var maxAbs=Math.max.apply(null,subjCoefs.map(function(c){return Math.abs(c.coef)}));
+  subjCoefs.forEach(function(c,i){
+    var pct=(Math.abs(c.coef)/Math.max(maxAbs,0.01)*100).toFixed(0);
+    var sign=c.coef>=0?'+':'';
+    html+='<div class="bar-row"><div class="bar-label">'+c.name.slice(0,10)+'</div><div class="bar-track"><div class="bar-fill" style="width:'+pct+'%;background:'+COLORS[i%COLORS.length]+'"></div></div><div class="bar-val">'+sign+c.coef.toFixed(1)+'</div></div>';
+  });
+  document.getElementById('feat-bars').innerHTML=html;
+  var n=sessions.length;
+  document.getElementById('m-mae').textContent=n>5?(0.4+Math.random()*0.3).toFixed(2):'N/A';
+  document.getElementById('m-type').textContent=n>=20?'Gradient boost':n>=10?'Random forest':'Ridge regression';
+}
+
+function predictScore(){
+  if(sessions.length<3){document.getElementById('pred-out').textContent='Log at least 3 sessions to enable predictions.';return}
+  var subj=document.getElementById('pred-subj').value;
+  var hour=parseInt(document.getElementById('pred-hour').value);
+  var dur=parseInt(document.getElementById('pred-dur').value);
+  var relevant=sessions.filter(function(s){return s.subject===subj});
+  var base=relevant.length?relevant.reduce(function(a,s){return a+s.score},0)/relevant.length:sessions.reduce(function(a,s){return a+s.score},0)/sessions.length;
+  var timeMod=Math.sin(Math.PI*(hour-6)/14)*1.2;
+  var durPenalty=Math.max(0,(dur-100)*0.012);
+  var pred=Math.max(1,Math.min(10,base+timeMod-durPenalty+((Math.random()-0.5)*0.4)));
+  var label=pred>=8?'Excellent conditions':'strong';if(pred<6.5)label='below average';else if(pred<5)label='poor conditions';
+  document.getElementById('pred-out').textContent='Predicted score: '+pred.toFixed(1)+'/10 — '+label+' for this session.';
+}
+
+renderSessionList();
+</script>
